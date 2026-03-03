@@ -26,9 +26,9 @@ struct RedditPost {
 
 #[derive(Debug, Deserialize)]
 struct PostData {
-    title: String,
+    title: Option<String>,
     score: u32,
-    url: String,
+    url:   Option<String>,
 }
 
 #[tokio::main]
@@ -57,8 +57,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response_rd = fetch_from_subreddit(&client, "rust", 10).await.unwrap();
 
     for post in response_rd.data.children.iter() {
-        println!("| Title: {:.<26} |", post.data.title);
-        println!("| URL:   {:.<26} |", post.data.url);
+        println!("| Title: {:.<26} |", post.data.title.as_deref().unwrap_or("N/A"));
+        println!("| URL:   {:.<26} |", post.data.url.as_deref().unwrap_or("N/A"));
         println!("| UpVotes: {:.<26} |", post.data.score);
         println!("| {:-<30} ", "");
     }
