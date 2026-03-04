@@ -39,6 +39,13 @@ struct Args {
     #[arg(short, long, default_value = "rust")]
     subreddit: String,
 
+    #[arg(short='h', long="hn")]
+    hn_flag: bool,
+
+    #[arg(short='r', long="rd")]
+    rd_flag: bool,
+
+
 }
 
 #[tokio::main]
@@ -49,29 +56,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     banner();
 
-    let response_hn = fetch_top_ids_hn(&client).await.unwrap();
+    let hn = if args.hn_flag {
+        Some(fetch_top_ids_hn(&client).await?)
+    } else {
+        None
+    };
 
-    for id in response_hn.iter().take(args.limit) {
-        match fetch_story_hn(&client, *id).await {
-            Ok(story) => {
-                println!("| Title: {:.<26} |", story.title.as_deref().unwrap_or("N/A"));
-                println!("| URL:   {:.<26} |", story.url.as_deref().unwrap_or("N/A"));
-                println!("| Score: {:.<26} |", story.score.map(|s| s.to_string()).unwrap_or_else(|| "N/A".to_string()));
-                println!("| {:-<30} ", "");
-            }
-            Err(e) => {
-                eprintln!("Failed to fetch story {}: {}", id, e);
+    let rd = if args.rd_flag {
+        Some(fetch_from_subreddit(&client, args.subreddit, args.limit).await?)
+    } else {
+        None
+    };
+
+    if let Some(hn) = hn {
+        for id in hn.iter().take(args.limit) {
+            match fetch_story_hn(&client, *id).await {
+                Ok(story) => {
+                    println!("| Title: {:.<26} |", story.title.as_deref().unwrap_or("N/A"));
+                    println!("| URL:   {:.<26} |", story.url.as_deref().unwrap_or("N/A"));
+                    println!("| Score: {:.<26} |", story.score.map(|s| s.to_string()).unwrap_or_else(|| "N/A".to_string()));
+                    println!("| {:-<30} ", "");
+                }
+                Err(e) => {
+                    eprintln!("Failed to fetch story {}: {}", id, e);
+                }
             }
         }
     }
 
-    let response_rd = fetch_from_subreddit(&client, args.subreddit, args.limit).await.unwrap();
 
-    for post in response_rd.data.children.iter() {
-        println!("| Title: {:.<26} |", post.data.title.as_deref().unwrap_or("N/A"));
-        println!("| URL:   {:.<26} |", post.data.url.as_deref().unwrap_or("N/A"));
-        println!("| UpVotes: {:.<26} |", post.data.score);
-        println!("| {:-<30} ", "");
+    if let Some(rd) = rd {
+        for post in rd.data.children.iter() {
+            println!("| Title: {:.<26} |", post.data.title.as_deref().unwrap_or("N/A"));
+            println!("| URL:   {:.<26} |", post.data.url.as_deref().unwrap_or("N/A"));
+            println!("| UpVotes: {:.<26} |", post.data.score);
+            println!("| {:-<30} ", "");
+        }
     }
 
 
