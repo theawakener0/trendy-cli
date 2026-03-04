@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde::Deserialize;
-
+use clap::{Parser};
 
 #[derive(Debug, Deserialize)]
 struct HNStory {
@@ -30,17 +30,28 @@ struct PostData {
     score: u32,
     url:   Option<String>,
 }
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value_t = 10)]
+    limit: usize,
+    
+    #[arg(short, long, default_value = "rust")]
+    subreddit: String,
+
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let client = Client::new();
+    let args = Args::parse();
 
     banner();
 
     let response_hn = fetch_top_ids_hn(&client).await.unwrap();
 
-    for id in response_hn.iter().take(10) {
+    for id in response_hn.iter().take(args.limit) {
         match fetch_story_hn(&client, *id).await {
             Ok(story) => {
                 println!("| Title: {:.<26} |", story.title.as_deref().unwrap_or("N/A"));
@@ -54,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let response_rd = fetch_from_subreddit(&client, "rust", 10).await.unwrap();
+    let response_rd = fetch_from_subreddit(&client, args.subreddit, args.limit).await.unwrap();
 
     for post in response_rd.data.children.iter() {
         println!("| Title: {:.<26} |", post.data.title.as_deref().unwrap_or("N/A"));
@@ -111,7 +122,7 @@ async fn fetch_story_hn(client: &Client, id: u64) -> Result<HNStory, reqwest::Er
         .await
 }
 
-async fn fetch_from_subreddit(client: &Client, subreddit: &str, lim: u32) -> Result<RedditResponse, reqwest::Error> {
+async fn fetch_from_subreddit(client: &Client, subreddit: String, lim: usize) -> Result<RedditResponse, reqwest::Error> {
     let url = format!("https://www.reddit.com/r/{}/top.json?limit={}", subreddit, lim);
     client
         .get(&url)
