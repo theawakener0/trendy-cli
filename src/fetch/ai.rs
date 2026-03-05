@@ -30,7 +30,7 @@ struct ResponseMessage {
 }
 
 pub async fn fetch_ai_response(client: &Client,model: String, prompt: String) -> Result<String, reqwest::Error> {
-    let api_key = env::var("HACKCLUB_API_KEY");
+    let api_key = env::var("HACKCLUB_API_KEY").expect("HACKCLUB_API_KEY must be set");
 
     let request = ChatRequest {
         model: model,
@@ -42,7 +42,7 @@ pub async fn fetch_ai_response(client: &Client,model: String, prompt: String) ->
 
     let response = client
         .post("https://ai.hackclub.com/proxy/v1/chat/completions")
-        .header("Authorization", format!("Bearer {:?}", api_key))
+        .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&request)
         .send()
