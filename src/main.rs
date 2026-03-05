@@ -1,9 +1,10 @@
 use std::io::{Write, stdin, stdout};
-use std::process;
+use std::{process};
 use reqwest::Client;
 use clap::{Parser};
 use crate::fetch::hn::{fetch_top_ids_hn, fetch_story_hn};
 use crate::fetch::rd::{fetch_from_subreddit};
+use crate::fetch::ai::{fetch_ai_response};
 
 pub mod fetch; 
 
@@ -195,6 +196,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}  /quit     - Exit the program{}", ORANGE, RESET);
             println!(" ");
         }
+        else {
+            let model: String = String::from("moonshotai/kimi-k2.5");
+            match fetch_ai_response(&client, model, line_trim.to_string()).await {
+                Ok(result) => {
+                    println!(" ");
+                    println!("{}[AI]► {}{}", ORANGE, result, RESET);
+                    println!(" ");
+                }
+                Err(e) => {
+                    eprintln!("{}Failed to fetch AI response: {}{}",RED, e, RESET);
+                }
+            }
+        }
+
     }
 
 
