@@ -1,35 +1,17 @@
 use reqwest::Client;
-use serde::Deserialize;
 use clap::{Parser};
+use crate::fetch::hn::{fetch_top_ids_hn, fetch_story_hn};
+use crate::fetch::rd::{fetch_from_subreddit};
 
-#[derive(Debug, Deserialize)]
-struct HNStory {
-    title: Option<String>,
-    url: Option<String>,
-    score: Option<u32>,
-}
+pub mod fetch; 
 
-#[derive(Debug, Deserialize)]
-struct RedditResponse {
-    data: RedditData,
-}
 
-#[derive(Debug, Deserialize)]
-struct RedditData {
-    children: Vec<RedditPost>,
-}
+const RESET: &str = "\x1b[0m";
+const CLEAR: &str = "\x1b[2J\x1b[H";
+const ORANGE: &str = "\x1b[38;2;255;165;0m";
+const RED: &str = "\x1b[0;31m";
 
-#[derive(Debug, Deserialize)]
-struct RedditPost {
-    data: PostData,
-}
 
-#[derive(Debug, Deserialize)]
-struct PostData {
-    title: Option<String>,
-    score: u32,
-    url:   Option<String>,
-}
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -72,13 +54,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for id in hn.iter().take(args.limit) {
             match fetch_story_hn(&client, *id).await {
                 Ok(story) => {
+                    println!("{}", ORANGE);
                     println!("| Title: {:.<26} |", story.title.as_deref().unwrap_or("N/A"));
                     println!("| URL:   {:.<26} |", story.url.as_deref().unwrap_or("N/A"));
                     println!("| Score: {:.<26} |", story.score.map(|s| s.to_string()).unwrap_or_else(|| "N/A".to_string()));
                     println!("| {:-<30} ", "");
+                    println!("{}", RESET);
                 }
                 Err(e) => {
-                    eprintln!("Failed to fetch story {}: {}", id, e);
+                    eprintln!("{}Failed to fetch story {}: {}{}",RED, id, e, RESET);
                 }
             }
         }
@@ -87,10 +71,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(rd) = rd {
         for post in rd.data.children.iter() {
+            println!("{}", ORANGE);
             println!("| Title: {:.<26} |", post.data.title.as_deref().unwrap_or("N/A"));
             println!("| URL:   {:.<26} |", post.data.url.as_deref().unwrap_or("N/A"));
             println!("| UpVotes: {:.<26} |", post.data.score);
             println!("| {:-<30} ", "");
+            println!("{}", RESET);
         }
     }
 
@@ -102,9 +88,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn banner() {
 
-    const RESET: &str = "\x1b[0m";
-    const CLEAR: &str = "\x1b[2J\x1b[H";
-    const ORANGE: &str = "\x1b[38;2;255;165;0m";
 
     let banner = r#"
                                                                      
@@ -122,36 +105,6 @@ fn banner() {
 
 }
 
-
-async fn fetch_top_ids_hn(client: &Client) -> Result<Vec<u64>, reqwest::Error> {
-        client
-        .get("https://hacker-news.firebaseio.com/v0/topstories.json")
-        .send()
-        .await?
-        .json::<Vec<u64>>()
-        .await
-}
-
-async fn fetch_story_hn(client: &Client, id: u64) -> Result<HNStory, reqwest::Error> {
-    let url = format!("https://hacker-news.firebaseio.com/v0/item/{}.json", id);
-    client
-        .get(&url)
-        .send()
-        .await?
-        .json::<HNStory>()
-        .await
-}
-
-async fn fetch_from_subreddit(client: &Client, subreddit: String, lim: usize) -> Result<RedditResponse, reqwest::Error> {
-    let url = format!("https://www.reddit.com/r/{}/top.json?limit={}", subreddit, lim);
-    client
-        .get(&url)
-        .header("User-Agent", "trendy-cli")
-        .send()
-        .await?
-        .json::<RedditResponse>()
-        .await
-}
 
 
 
