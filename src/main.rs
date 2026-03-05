@@ -180,15 +180,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         Err(e) => {
                             eprintln!("{}Failed to fetch story {}: {}{}",RED, id, e, RESET);
-                            process::exit(1);    
                         }
                     }
                 }
             }
-
         }
-
-
+        else if line_trim == "/help" {
+            println!(" ");
+            println!("{}Available Commands for TrendyCLI REPL mode:{}", ORANGE, RESET);
+            println!("{}  /help     - Show this help message{}", ORANGE, RESET);
+            println!("{}  /clear    - Clear the screen{}", ORANGE, RESET);
+            println!("{}  /rd       - Fetch posts from a subreddit{}", ORANGE, RESET);
+            println!("{}  /hn       - Fetch top stories from Hacker News{}", ORANGE, RESET);
+            println!("{}  /quit     - Exit the program{}", ORANGE, RESET);
+            println!(" ");
+        }
     }
 
 
