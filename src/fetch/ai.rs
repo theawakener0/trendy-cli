@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
+use tokio_stream::StreamExt;
 
 #[derive(Serialize)]
 pub struct ChatRequest {
@@ -70,26 +71,36 @@ where
         stream: true,
     };
 
-    let response = client
+    let mut stream = client
         .post("https://ai.hackclub.com/proxy/v1/chat/completions")
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&request)
         .send()
-        .await?;
+        .await?
+        .bytes_stream();
 
-    let body = response.text().await?;
-    let lines: Vec<&str> = body.lines().collect();
+    let mut buffer = String::new();
 
-    for line in lines {
-        if line.starts_with("data: ") {
-            let data = &line[6..];
-            if data == "[DONE]" {
-                break;
-            }
-            if let Ok(stream_resp) = serde_json::from_str::<serde_json::Value>(data) {
-                if let Some(content) = stream_resp["choices"][0]["delta"]["content"].as_str() {
-                    on_token(content.to_string());
+    while let Some(chunk) = stream.next().await {
+        let chunk: bytes::Bytes = chunk?;
+        if let Ok(text) = String::from_utf8(chunk.to_vec()) {
+            buffer.push_str(&text);
+            
+            while let Some(newline_pos) = buffer.find('\n') {
+                let line = buffer.drain(..=newline_pos).collect::<String>();
+                let line = line.trim();
+                
+                if line.starts_with("data: ") {
+                    let data = &line[6..];
+                    if data == "[DONE]" {
+                        return Ok(());
+                    }
+                    if let Ok(stream_resp) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(content) = stream_resp["choices"][0]["delta"]["content"].as_str() {
+                            on_token(content.to_string());
+                        }
+                    }
                 }
             }
         }

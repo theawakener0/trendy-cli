@@ -204,6 +204,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let first_token_clone = first_token.clone();
             let first_token_for_callback = first_token.clone();
             
+            let spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+            let frame_idx = std::sync::Arc::new(std::sync::Mutex::new(0usize));
+            let frame_idx_clone = frame_idx.clone();
+            
             let spin_handle = std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(80));
@@ -212,17 +216,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         break;
                     }
                     drop(ft);
-                    print!("\r{}⏎ {}AI{}► {}Waiting for response...{}", CLEAR, ORANGE, ORANGE, ORANGE, RESET);
+                    let mut idx = frame_idx_clone.lock().unwrap();
+                    let frame = spinner_frames[*idx % spinner_frames.len()];
+                    *idx += 1;
+                    drop(idx);
+                    print!("\r{}{}AI{}► {}Waiting...{}   ", frame, ORANGE, ORANGE, ORANGE, RESET);
                     stdout().flush().unwrap();
                 }
             });
+            
+            print!("\r{}AI{}► ",ORANGE, ORANGE);
+            stdout().flush().unwrap();
             
             match fetch_ai_response_stream(&client, model, line_trim.to_string(), move |token| {
                 let mut ft = first_token_for_callback.lock().unwrap();
                 if !*ft {
                     *ft = true;
-                    print!("\r{}  ", CLEAR);
-                    stdout().flush().unwrap();
                 }
                 drop(ft);
                 print!("{}{}", ORANGE, token);
