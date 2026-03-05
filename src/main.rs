@@ -24,7 +24,7 @@ struct Args {
     #[arg(short, long, default_value = "rust")]
     subreddit: String,
 
-    #[arg(short='h', long="hn")]
+    #[arg(short='n', long="hn")]
     hn_flag: bool,
 
     #[arg(short='r', long="rd")]
