@@ -4,7 +4,7 @@ use reqwest::Client;
 use clap::{Parser};
 use crate::fetch::hn::{fetch_top_ids_hn, fetch_story_hn};
 use crate::fetch::rd::{fetch_from_subreddit};
-use crate::fetch::ai::{fetch_ai_response};
+use crate::fetch::ai::{fetch_ai_response_stream};
 
 pub mod fetch; 
 
@@ -199,16 +199,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         else {
             let model: String = String::from("moonshotai/kimi-k2.5");
-            match fetch_ai_response(&client, model, line_trim.to_string()).await {
-                Ok(result) => {
-                    println!(" ");
-                    println!("{}[AI]► {}{}", ORANGE, result, RESET);
+            
+            let first_token = std::sync::Arc::new(std::sync::Mutex::new(false));
+            let first_token_clone = first_token.clone();
+            let first_token_for_callback = first_token.clone();
+            
+            let spin_handle = std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(80));
+                    let ft = first_token_clone.lock().unwrap();
+                    if *ft {
+                        break;
+                    }
+                    drop(ft);
+                    print!("\r{}⏎ {}AI{}► {}Waiting for response...{}", CLEAR, ORANGE, ORANGE, ORANGE, RESET);
+                    stdout().flush().unwrap();
+                }
+            });
+            
+            match fetch_ai_response_stream(&client, model, line_trim.to_string(), move |token| {
+                let mut ft = first_token_for_callback.lock().unwrap();
+                if !*ft {
+                    *ft = true;
+                    print!("\r{}  ", CLEAR);
+                    stdout().flush().unwrap();
+                }
+                drop(ft);
+                print!("{}{}", ORANGE, token);
+                stdout().flush().unwrap();
+            }).await {
+                Ok(_) => {
+                    println!("{}", RESET);
                     println!(" ");
                 }
                 Err(e) => {
                     eprintln!("{}Failed to fetch AI response: {}{}",RED, e, RESET);
                 }
             }
+            
+            let _ = spin_handle.join();
         }
 
     }
