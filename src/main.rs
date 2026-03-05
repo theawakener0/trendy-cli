@@ -13,6 +13,7 @@ const RESET: &str = "\x1b[0m";
 const CLEAR: &str = "\x1b[2J\x1b[H";
 const ORANGE: &str = "\x1b[38;2;255;165;0m";
 const RED: &str = "\x1b[0;31m";
+const CLEAR_LINE: &str = "\r\x1b[K";
 
 
 #[derive(Parser, Debug)]
@@ -220,11 +221,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let frame = spinner_frames[*idx % spinner_frames.len()];
                     *idx += 1;
                     drop(idx);
-                    print!("\r{}{}AI{}► {}Waiting...{}   ", frame, ORANGE, ORANGE, ORANGE, RESET);
+                    print!("\r{}{} Thinking....{}", ORANGE, frame, RESET);
                     stdout().flush().unwrap();
                 }
             });
             
+            print!("\r{}", CLEAR_LINE);
             print!("\r{}AI{}► ",ORANGE, ORANGE);
             stdout().flush().unwrap();
             
@@ -232,10 +234,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut ft = first_token_for_callback.lock().unwrap();
                 if !*ft {
                     *ft = true;
+                    drop(ft);
+                    print!("\r{}{}{}", CLEAR_LINE, ORANGE, token);
+                    stdout().flush().unwrap();
+                } else {
+                    print!("{}{}", ORANGE, token);
+                    stdout().flush().unwrap();
                 }
-                drop(ft);
-                print!("{}{}", ORANGE, token);
-                stdout().flush().unwrap();
             }).await {
                 Ok(_) => {
                     println!("{}", RESET);
