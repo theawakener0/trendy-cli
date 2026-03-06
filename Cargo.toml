@@ -1,7 +1,12 @@
 [package]
 name = "trendy-cli"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "A CLI tool for fetching posts from Reddit and Hacker News with AI chat capabilities"
+license = "MIT"
+repository = "https://github.com/theawakener0/trendy-cli"
+keywords = ["cli", "reddit", "hacker-news", "ai", "hackclub"]
+categories = ["command-line-utilities", "asynchronous"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
