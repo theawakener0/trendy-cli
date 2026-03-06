@@ -17,7 +17,13 @@ cargo install trendy-cli
 Or build from source:
 
 ```bash
+# COPY AND PASTE (if you have rust installed).
+
+git clone https://github.com/theawakener0/trendy-cli.git
+cd trendy-cli
+
 cargo build --release
+
 ```
 
 ## Usage
