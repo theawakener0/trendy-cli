@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{env, error::Error, io};
+use std::error::Error;
+use std::io;
 use tokio_stream::StreamExt;
 
 type AppError = Box<dyn Error + Send + Sync>;
@@ -53,10 +54,17 @@ struct ResponseMessage {
 
 pub async fn fetch_ai_response(
     client: &Client,
+    api_key: Option<String>,
     model: String,
     prompt: String,
 ) -> Result<String, AppError> {
-    let api_key = api_key()?;
+    let api_key = api_key.ok_or_else(|| -> AppError {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "No API key configured. Run `trendy --api-key YOUR_KEY` or set HACKCLUB_API_KEY env var.",
+        )
+        .into()
+    })?;
 
     let request = ChatRequest {
         model: model,
@@ -83,6 +91,7 @@ pub async fn fetch_ai_response(
 
 pub async fn fetch_ai_response_stream<F>(
     client: &Client,
+    api_key: Option<String>,
     model: String,
     prompt: String,
     on_token: F,
@@ -90,7 +99,13 @@ pub async fn fetch_ai_response_stream<F>(
 where
     F: Fn(String) + Send + Sync,
 {
-    let api_key = api_key()?;
+    let api_key = api_key.ok_or_else(|| -> AppError {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "No API key configured. Run `trendy --api-key YOUR_KEY` or set HACKCLUB_API_KEY env var.",
+        )
+        .into()
+    })?;
 
     let request = ChatRequest {
         model,
@@ -136,10 +151,6 @@ where
     Ok(())
 }
 
-fn api_key() -> Result<String, AppError> {
-    env::var("HACKCLUB_API_KEY")
-        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, "HACKCLUB_API_KEY must be set").into())
-}
 
 fn parse_stream_line<F>(line: &str, on_token: &F) -> bool
 where

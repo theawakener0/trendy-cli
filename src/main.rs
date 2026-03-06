@@ -8,8 +8,10 @@ use reqwest::Client;
 use crate::fetch::ai::{fetch_ai_response_stream, fetch_ai_models};
 use crate::fetch::hn::{fetch_story_hn, fetch_top_ids_hn};
 use crate::fetch::rd::fetch_from_subreddit;
+use crate::config::get_api_key;
 
 pub mod fetch;
+pub mod config;
 
 type AppError = Box<dyn Error + Send + Sync>;
 
@@ -23,6 +25,9 @@ const DEFAULT_MODEL: &str = "moonshotai/kimi-k2.5";
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    #[arg(short, long)]
+    api_key: Option<String>,
+
     #[arg(short, long, default_value_t = 10)]
     limit: usize,
 
@@ -51,6 +56,7 @@ async fn main() -> Result<(), AppError> {
         .build()?;
     let args = Args::parse();
     
+    let api_key = get_api_key(args.api_key);
 
     banner();
 
@@ -70,10 +76,10 @@ async fn main() -> Result<(), AppError> {
         return Ok(());
     }
 
-    repl(&client).await
+    repl(&client, api_key).await
 }
 
-async fn repl(client: &Client) -> Result<(), AppError> {
+async fn repl(client: &Client, api_key: Option<String>) -> Result<(), AppError> {
     let mut model = "".to_string();
     loop {
         let line = read_input("► ")?;
@@ -119,7 +125,7 @@ async fn repl(client: &Client) -> Result<(), AppError> {
             }
             "/help" => print_help(),
             prompt => {
-                if let Err(err) = stream_ai_reply(client, model.as_mut_str(), prompt).await {
+                if let Err(err) = stream_ai_reply(client, api_key.clone(), model.as_mut_str(), prompt).await {
                     eprintln!("{}Failed to fetch AI response: {}{}", RED, err, RESET);
                 }
             }
@@ -183,7 +189,7 @@ async fn render_get_ai_models(client: &Client) -> Result<(), AppError> {
     Ok(())
 }
 
-async fn stream_ai_reply(client: &Client, mut model: &str, prompt: &str) -> Result<(), AppError> {
+async fn stream_ai_reply(client: &Client, api_key: Option<String>, mut model: &str, prompt: &str) -> Result<(), AppError> {
     let (tx, rx) = mpsc::channel();
     let render_handle = thread::spawn(move || render_ai_stream(rx));
     if model.is_empty() {
@@ -191,6 +197,7 @@ async fn stream_ai_reply(client: &Client, mut model: &str, prompt: &str) -> Resu
     }
     let result = fetch_ai_response_stream(
         client,
+        api_key,
         model.to_string(),
         prompt.to_string(),
         move |token| {
