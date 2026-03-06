@@ -21,6 +21,22 @@ pub struct Message {
 }
 
 #[derive(Deserialize)]
+pub struct GetModels {
+    pub data: Vec<ModelsData>,
+}
+
+#[derive(Deserialize)]
+pub struct ModelsData {
+    pub id: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub created: Option<u64>,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct ChatResponse {
     choices: Vec<Choice>,
 }
@@ -147,3 +163,18 @@ where
 
     false
 }
+
+pub async fn fetch_ai_models(client: &Client) -> Result<GetModels, AppError> {
+    let response = client
+        .get("https://ai.hackclub.com/proxy/v1/models")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<GetModels>()
+        .await?;
+
+    Ok(response)
+}
+
+
+

@@ -3,11 +3,9 @@ use std::io::{self, Write, stdin, stdout};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-
 use clap::Parser;
 use reqwest::Client;
-
-use crate::fetch::ai::fetch_ai_response_stream;
+use crate::fetch::ai::{fetch_ai_response_stream, fetch_ai_models};
 use crate::fetch::hn::{fetch_story_hn, fetch_top_ids_hn};
 use crate::fetch::rd::fetch_from_subreddit;
 
@@ -52,6 +50,7 @@ async fn main() -> Result<(), AppError> {
         .user_agent("trendy-cli")
         .build()?;
     let args = Args::parse();
+    
 
     banner();
 
@@ -75,6 +74,7 @@ async fn main() -> Result<(), AppError> {
 }
 
 async fn repl(client: &Client) -> Result<(), AppError> {
+    let mut model = "".to_string();
     loop {
         let line = read_input("► ")?;
 
@@ -109,9 +109,17 @@ async fn repl(client: &Client) -> Result<(), AppError> {
                     );
                 }
             }
+            "/model" => {
+                model = read_input("[Enter model name]► ")?;
+            }
+            "/models" => {
+                if let Err(err) = render_get_ai_models(client).await {
+                    eprintln!("{}Failed to fetch AI models: {}{}", RED, err, RESET);
+                }
+            }
             "/help" => print_help(),
             prompt => {
-                if let Err(err) = stream_ai_reply(client, prompt).await {
+                if let Err(err) = stream_ai_reply(client, model.as_mut_str(), prompt).await {
                     eprintln!("{}Failed to fetch AI response: {}{}", RED, err, RESET);
                 }
             }
@@ -165,13 +173,25 @@ async fn render_rd(client: &Client, subreddit: &str, limit: usize) -> Result<(),
     Ok(())
 }
 
-async fn stream_ai_reply(client: &Client, prompt: &str) -> Result<(), AppError> {
+async fn render_get_ai_models(client: &Client) -> Result<(), AppError> {
+    let models = fetch_ai_models(client).await?;
+
+    for model in models.data {
+        print_models(&model);
+    }
+
+    Ok(())
+}
+
+async fn stream_ai_reply(client: &Client, mut model: &str, prompt: &str) -> Result<(), AppError> {
     let (tx, rx) = mpsc::channel();
     let render_handle = thread::spawn(move || render_ai_stream(rx));
-
+    if model.is_empty() {
+        model = DEFAULT_MODEL;
+    }
     let result = fetch_ai_response_stream(
         client,
-        DEFAULT_MODEL.to_string(),
+        model.to_string(),
         prompt.to_string(),
         move |token| {
             let _ = tx.send(RenderEvent::Token(token));
@@ -265,6 +285,22 @@ fn print_reddit_post(post: &crate::fetch::rd::RedditPost) {
     println!("{}", RESET);
 }
 
+fn print_models(model: &crate::fetch::ai::ModelsData) {
+    println!("{}ID:{} {}", ORANGE, RESET, model.id);
+    if let Some(name) = &model.name {
+        println!("{}Name:{} {}", ORANGE, RESET, name);
+    }
+    if let Some(desc) = &model.description {
+        let short_desc = if desc.len() > 100 {
+            format!("{}...", &desc[..100])
+        } else {
+            desc.clone()
+        };
+        println!("{}Desc:{} {}", ORANGE, RESET, short_desc);
+    }
+    println!();
+}
+
 fn print_help() {
     println!();
     println!(
@@ -281,6 +317,8 @@ fn print_help() {
         "{}  /hn       - Fetch top stories from Hacker News{}",
         ORANGE, RESET
     );
+    println!("{}  /model     - Change the DEFAULT_MODEL{}", ORANGE, RESET);
+    println!("{}  /models    - List available AI models{}", ORANGE, RESET);
     println!("{}  /quit     - Exit the program{}", ORANGE, RESET);
     println!();
 }
