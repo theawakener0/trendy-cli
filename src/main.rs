@@ -1,17 +1,17 @@
+use crate::config::get_api_key;
+use crate::fetch::ai::{fetch_ai_models, fetch_ai_response_stream};
+use crate::fetch::hn::{fetch_story_hn, fetch_top_ids_hn};
+use crate::fetch::rd::fetch_from_subreddit;
+use clap::Parser;
+use reqwest::Client;
 use std::error::Error;
-use std::io::{self, Write, stdin, stdout};
+use std::io::{self, stdin, stdout, Write};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use clap::Parser;
-use reqwest::Client;
-use crate::fetch::ai::{fetch_ai_response_stream, fetch_ai_models};
-use crate::fetch::hn::{fetch_story_hn, fetch_top_ids_hn};
-use crate::fetch::rd::fetch_from_subreddit;
-use crate::config::get_api_key;
 
-pub mod fetch;
 pub mod config;
+pub mod fetch;
 
 type AppError = Box<dyn Error + Send + Sync>;
 
@@ -55,7 +55,7 @@ async fn main() -> Result<(), AppError> {
         .user_agent("trendy-cli")
         .build()?;
     let args = Args::parse();
-    
+
     let api_key = get_api_key(args.api_key);
 
     banner();
@@ -125,7 +125,9 @@ async fn repl(client: &Client, api_key: Option<String>) -> Result<(), AppError> 
             }
             "/help" => print_help(),
             prompt => {
-                if let Err(err) = stream_ai_reply(client, api_key.clone(), model.as_mut_str(), prompt).await {
+                if let Err(err) =
+                    stream_ai_reply(client, api_key.clone(), model.as_mut_str(), prompt).await
+                {
                     eprintln!("{}Failed to fetch AI response: {}{}", RED, err, RESET);
                 }
             }
@@ -189,7 +191,12 @@ async fn render_get_ai_models(client: &Client) -> Result<(), AppError> {
     Ok(())
 }
 
-async fn stream_ai_reply(client: &Client, api_key: Option<String>, mut model: &str, prompt: &str) -> Result<(), AppError> {
+async fn stream_ai_reply(
+    client: &Client,
+    api_key: Option<String>,
+    mut model: &str,
+    prompt: &str,
+) -> Result<(), AppError> {
     let (tx, rx) = mpsc::channel();
     let render_handle = thread::spawn(move || render_ai_stream(rx));
     if model.is_empty() {
